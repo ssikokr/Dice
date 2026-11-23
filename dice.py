@@ -584,10 +584,24 @@ def free_dice_roller():
 
 
 # ============================================================================
-# Main Menu
+# Main Menu & Launcher
 # ============================================================================
+def launch_gui():
+    """Launch the sleek desktop GUI."""
+    print("Launching sleek Desktop GUI (diceGUI.py)...")
+    try:
+        subprocess.Popen([sys.executable, os.path.join(BASE_DIR, "diceGUI.py")])
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        print(f"Could not launch GUI: {exc}")
+
+
 def start_game():
     """Main launcher entrypoint offering all dice game modes."""
+    # Handle --gui / -g command-line argument
+    if len(sys.argv) > 1 and sys.argv[1].lower() in ("--gui", "-g", "gui"):
+        launch_gui()
+        return
+
     print("┌────────────────────────────────────────────────────────┐")
     print("│                   D I C E   A R C A D E                │")
     print("│         Minimalist, Sleek Terminal Dice Games          │")
@@ -596,11 +610,12 @@ def start_game():
     print("  [2] Play Pig (2-Player Pass & Play)")
     print("  [3] High Roller (Casino Win Range)")
     print("  [4] Free Dice Roller (1-5 Dice & Stats)")
+    print("  [G] Launch Sleek Desktop GUI")
     print("  [Q] Quit")
     print()
 
     try:
-        choice = input("Select a game [1-4, Q] (Press Enter for Pig vs Bot): ").strip().lower()
+        choice = input("Select a game [1-4, G, Q] (Press Enter for Pig vs Bot): ").strip().lower()
     except EOFError:
         # Non-interactive CI execution: launch Pig vs Bot for demo
         choice = "1"
@@ -615,6 +630,8 @@ def start_game():
         HighRollerCLI().run()
     elif choice == "4":
         free_dice_roller()
+    elif choice in ("g", "gui", "0"):
+        launch_gui()
     elif choice in ("q", "quit", "exit"):
         print("Goodbye!")
     else:
