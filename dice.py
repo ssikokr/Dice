@@ -29,11 +29,10 @@ def play_sound(filename):
     if os.path.exists(path):
         try:
             winsound.PlaySound(path, winsound.SND_FILENAME | winsound.SND_ASYNC)
-        except Exception:  # pylint: disable=broad-exception-caught
+        except (OSError, RuntimeError):
             pass
 
 
-# Sleek, clean ASCII die faces (1-6)
 DICE_FACES = {
     1: (
         "┌─────────┐",
@@ -133,9 +132,6 @@ def make_progress_bar(current, target, width=16):
     return f"[{bar}] {current:2d}/{target}"
 
 
-# ============================================================================
-# Game Mode 1: Pig (Push-Your-Luck)
-# ============================================================================
 class PigGame:
     """Sleek implementation of the classic Pig push-your-luck dice game."""
 
@@ -171,7 +167,6 @@ class PigGame:
             time.sleep(0.5)
 
         while True:
-            # Bot strategy: Bank immediately if winning; otherwise bank at 15+ points
             if self.scores[1] + self.turn_score >= self.target_score:
                 break
             if self.turn_score >= 15 or (self.scores[1] >= 35 and self.turn_score >= 10):
@@ -197,7 +192,6 @@ class PigGame:
             if sys.stdout.isatty():
                 time.sleep(0.4)
 
-        # Bot decides to bank
         self.scores[1] += self.turn_score
         play_sound("neutral.wav")
         print(f"  >> 💰 {self.names[1]} banks {self.turn_score} points! Total: {self.scores[1]}/{self.target_score}\n")
@@ -216,12 +210,10 @@ class PigGame:
         while max(self.scores) < self.target_score:
             self.show_scoreboard()
 
-            # Handle bot turn
             if self.vs_bot and self.current_turn == 1:
                 self.play_bot_turn()
                 continue
 
-            # Handle human turn
             active_name = self.names[self.current_turn]
             projected = self.scores[self.current_turn] + self.turn_score
             print(f"Active: {active_name} | Turn Points: +{self.turn_score} | Projected: {projected}/{self.target_score}")
@@ -230,7 +222,6 @@ class PigGame:
             try:
                 action = input(prompt).strip().lower()
             except EOFError:
-                # Non-interactive fallback (demo roll for CI)
                 print("\n[Non-interactive environment detected: performing demo turn]")
                 action = "r"
             except KeyboardInterrupt:
@@ -277,7 +268,6 @@ class PigGame:
             else:
                 print(f"Unknown action '{action}'. Press Enter to roll, 'b' to bank, or 'q' to quit.\n")
 
-        # Game over outcome
         if max(self.scores) >= self.target_score:
             self.show_scoreboard()
             winner_idx = 0 if self.scores[0] >= self.target_score else 1
@@ -285,9 +275,6 @@ class PigGame:
             print(f"\n🏆 VICTORY! {self.names[winner_idx]} has won the match with {self.scores[winner_idx]} points!\n")
 
 
-# ============================================================================
-# Game Mode 2: High Roller (Casino Win Range)
-# ============================================================================
 WIN_LOW = 3
 WIN_HIGH_START = 6
 BUST_THRESHOLD = 20
@@ -493,18 +480,11 @@ class HighRollerCLI:
             elif action in ("w", "wager"):
                 self.set_wager_prompt()
             elif action in ("g", "gui"):
-                print("Launching GUI version (diceGUI.py)...")
-                try:
-                    subprocess.Popen([sys.executable, os.path.join(BASE_DIR, "diceGUI.py")])
-                except Exception as exc:  # pylint: disable=broad-exception-caught
-                    print(f"Could not launch GUI: {exc}")
+                launch_gui()
             else:
                 print(f"Unknown action '{action}'. Choose [R]oll, [P]ower Down, [C]heck Out, [W]ager, or [Q]uit.\n")
 
 
-# ============================================================================
-# Game Mode 3: Free Dice Roller (Multi-Dice Sandbox)
-# ============================================================================
 def free_dice_roller():
     """Interactive multi-dice rolling sandbox with session statistics."""
     print("\n========================================================")
@@ -583,21 +563,17 @@ def free_dice_roller():
             print(f"You got: {dice_str} = {total} (Total: {total})\n")
 
 
-# ============================================================================
-# Main Menu & Launcher
-# ============================================================================
 def launch_gui():
     """Launch the sleek desktop GUI."""
     print("Launching sleek Desktop GUI (diceGUI.py)...")
     try:
         subprocess.Popen([sys.executable, os.path.join(BASE_DIR, "diceGUI.py")])
-    except Exception as exc:  # pylint: disable=broad-exception-caught
+    except (OSError, ValueError) as exc:
         print(f"Could not launch GUI: {exc}")
 
 
 def start_game():
     """Main launcher entrypoint offering all dice game modes."""
-    # Handle --gui / -g command-line argument
     if len(sys.argv) > 1 and sys.argv[1].lower() in ("--gui", "-g", "gui"):
         launch_gui()
         return
@@ -617,7 +593,6 @@ def start_game():
     try:
         choice = input("Select a game [1-4, G, Q] (Press Enter for Pig vs Bot): ").strip().lower()
     except EOFError:
-        # Non-interactive CI execution: launch Pig vs Bot for demo
         choice = "1"
     except KeyboardInterrupt:
         return

@@ -4,11 +4,8 @@ Featuring a minimalist, modern dark aesthetic with smooth tumbling roll
 animations, visual progress meters, and smart AI opponent.
 """
 
-# pylint: disable=broad-exception-caught,too-many-instance-attributes,too-many-statements,too-many-lines
-
 import os
 import random
-import sys
 import tkinter as tk
 from tkinter import messagebox
 
@@ -35,13 +32,10 @@ def play_sound(filename):
     if os.path.exists(path):
         try:
             winsound.PlaySound(path, winsound.SND_FILENAME | winsound.SND_ASYNC)
-        except Exception:
+        except (OSError, RuntimeError):
             pass
 
 
-# ---------------------------------------------------------------------------
-# Sleek Minimalist Color Palette (Executive Dark Mode)
-# ---------------------------------------------------------------------------
 BG_DARK = "#0f1117"
 CARD_BG = "#181b24"
 CARD_BORDER = "#262b3a"
@@ -78,7 +72,7 @@ def load_dice_images():
             try:
                 img = Image.open(path).convert("RGBA").resize((130, 130), Image.LANCZOS)
                 images[i] = ImageTk.PhotoImage(img)
-            except Exception:
+            except (OSError, ValueError):
                 pass
     return images
 
@@ -95,17 +89,15 @@ class DiceArcadeGUI:
 
         self.dice_images = load_dice_images()
         self.is_animating = False
-        self.current_mode = "pig"  # "pig" or "high_roller"
+        self.current_mode = "pig"
 
-        # --- Pig Game State ---
         self.pig_target = 50
         self.pig_vs_bot = True
-        self.pig_scores = [0, 0]  # [Player, Bot / P2]
-        self.pig_turn = 0         # 0 = Player, 1 = Bot / P2
+        self.pig_scores = [0, 0]
+        self.pig_turn = 0
         self.pig_turn_score = 0
         self.pig_game_over = False
 
-        # --- High Roller State ---
         self.hr_win_low = 3
         self.hr_win_high = 6
         self.hr_bust_limit = 20
@@ -124,7 +116,6 @@ class DiceArcadeGUI:
 
     def setup_ui(self):
         """Construct the UI layout and widgets."""
-        # Top Header & Mode Switcher
         header_frame = tk.Frame(self.root, bg=BG_DARK, pady=12)
         header_frame.pack(fill="x")
 
@@ -144,7 +135,6 @@ class DiceArcadeGUI:
             bg=BG_DARK,
         ).pack(pady=(2, 8))
 
-        # Mode Selector Buttons
         mode_btn_frame = tk.Frame(header_frame, bg=CARD_BG, padx=4, pady=4, highlightthickness=1, highlightbackground=CARD_BORDER)
         mode_btn_frame.pack()
 
@@ -180,22 +170,16 @@ class DiceArcadeGUI:
         )
         self.hr_tab_btn.pack(side="left", padx=2)
 
-        # Central Dynamic Container
         self.content_frame = tk.Frame(self.root, bg=BG_DARK, padx=16, pady=4)
         self.content_frame.pack(fill="both", expand=True)
 
-        # Construct sub-frames for both modes
         self.setup_pig_frame()
         self.setup_hr_frame()
 
-    # =========================================================================
-    # PIG GAME UI & LOGIC
-    # =========================================================================
     def setup_pig_frame(self):
         """Construct the Pig Game interface."""
         self.pig_frame = tk.Frame(self.content_frame, bg=BG_DARK)
 
-        # Mode sub-toggle: Vs Bot / 2-Player
         toggle_row = tk.Frame(self.pig_frame, bg=BG_DARK)
         toggle_row.pack(fill="x", pady=(0, 8))
 
@@ -225,7 +209,6 @@ class DiceArcadeGUI:
         )
         self.p2_mode_btn.pack(side="left")
 
-        # Scoreboard Card
         score_card = tk.Frame(
             self.pig_frame,
             bg=CARD_BG,
@@ -236,7 +219,6 @@ class DiceArcadeGUI:
         )
         score_card.pack(fill="x", pady=(0, 10))
 
-        # Player 1 row
         p1_header = tk.Frame(score_card, bg=CARD_BG)
         p1_header.pack(fill="x")
         self.p1_label = tk.Label(p1_header, text="Player 1", font=FONT_HEADING, fg=TEXT_PRIMARY, bg=CARD_BG)
@@ -247,7 +229,6 @@ class DiceArcadeGUI:
         self.p1_canvas = tk.Canvas(score_card, width=390, height=8, bg=TRACK_BG, highlightthickness=0)
         self.p1_canvas.pack(fill="x", pady=(4, 10))
 
-        # Opponent row
         p2_header = tk.Frame(score_card, bg=CARD_BG)
         p2_header.pack(fill="x")
         self.p2_label = tk.Label(p2_header, text="Computer Bot", font=FONT_HEADING, fg=TEXT_MUTED, bg=CARD_BG)
@@ -258,7 +239,6 @@ class DiceArcadeGUI:
         self.p2_canvas = tk.Canvas(score_card, width=390, height=8, bg=TRACK_BG, highlightthickness=0)
         self.p2_canvas.pack(fill="x", pady=(4, 2))
 
-        # Die Display Area (Clean Frame)
         die_card = tk.Frame(
             self.pig_frame,
             bg=CARD_BG,
@@ -273,7 +253,6 @@ class DiceArcadeGUI:
         self.pig_die_label.pack()
         self.show_pig_die(1)
 
-        # Status & Turn Info Card
         self.pig_status_label = tk.Label(
             die_card,
             text="Roll to build points, bank to lock them in!",
@@ -293,7 +272,6 @@ class DiceArcadeGUI:
         )
         self.pig_turn_info.pack()
 
-        # Action Buttons
         action_card = tk.Frame(self.pig_frame, bg=BG_DARK)
         action_card.pack(fill="x", pady=(0, 8))
 
@@ -331,7 +309,6 @@ class DiceArcadeGUI:
         )
         self.pig_bank_btn.pack(side="right", fill="x", expand=True, padx=(6, 0))
 
-        # Bottom Bar: Reset Match
         bottom_row = tk.Frame(self.pig_frame, bg=BG_DARK)
         bottom_row.pack(fill="x", pady=(8, 0))
 
@@ -370,9 +347,7 @@ class DiceArcadeGUI:
         ratio = min(1.0, max(0.0, current / target))
         fill_w = int(round(ratio * w))
 
-        # Track background
         canvas.create_rectangle(0, 0, w, h, fill=TRACK_BG, width=0)
-        # Fill
         if fill_w > 0:
             canvas.create_rectangle(0, 0, fill_w, h, fill=color, width=0)
 
@@ -470,7 +445,6 @@ class DiceArcadeGUI:
 
         def finish_roll(val):
             if val == 1:
-                # Pig Out!
                 play_sound("lose.wav")
                 self.pig_status_label.config(
                     text="💥 PIG OUT! You rolled a 1 — all unbanked points lost!",
@@ -485,7 +459,6 @@ class DiceArcadeGUI:
                 self.pig_turn_score += val
                 proj = self.pig_scores[self.pig_turn] + self.pig_turn_score
                 if proj >= self.pig_target:
-                    # Player wins!
                     self.pig_scores[self.pig_turn] = proj
                     self.pig_game_over = True
                     play_sound("win.wav")
@@ -538,11 +511,9 @@ class DiceArcadeGUI:
         if self.pig_game_over or not self.pig_vs_bot or self.pig_turn != 1:
             return
 
-        # Bot decision: Bank or Roll?
         if (self.pig_scores[1] + self.pig_turn_score >= self.pig_target) or \
            (self.pig_turn_score >= 15) or \
            (self.pig_scores[1] >= 35 and self.pig_turn_score >= 10):
-            # Bot banks
             play_sound("neutral.wav")
             self.pig_scores[1] += self.pig_turn_score
             banked = self.pig_turn_score
@@ -566,7 +537,6 @@ class DiceArcadeGUI:
             self.update_pig_ui()
             return
 
-        # Bot decides to roll
         self.pig_status_label.config(text="● Bot is rolling...", fg=TEXT_MUTED)
         roll_val = random.randint(1, 6)
 
@@ -602,14 +572,10 @@ class DiceArcadeGUI:
 
         self.animate_roll(roll_val, finish_bot_roll)
 
-    # =========================================================================
-    # HIGH ROLLER GAME UI & LOGIC
-    # =========================================================================
     def setup_hr_frame(self):
         """Construct High Roller Casino interface in matching sleek dark theme."""
         self.hr_frame = tk.Frame(self.content_frame, bg=BG_DARK)
 
-        # Scoreboard Card
         hr_score_card = tk.Frame(
             self.hr_frame,
             bg=CARD_BG,
@@ -650,7 +616,6 @@ class DiceArcadeGUI:
         )
         self.hr_target_label.pack(anchor="w", pady=(4, 0))
 
-        # Wager Row
         wager_card = tk.Frame(self.hr_frame, bg=CARD_BG, padx=14, pady=8, highlightthickness=1, highlightbackground=CARD_BORDER)
         wager_card.pack(fill="x", pady=(0, 8))
 
@@ -673,7 +638,6 @@ class DiceArcadeGUI:
             btn.pack(side="left", padx=2)
             self.wager_btns[amt] = btn
 
-        # Die Card
         hr_die_card = tk.Frame(self.hr_frame, bg=CARD_BG, padx=20, pady=12, highlightthickness=1, highlightbackground=CARD_BORDER)
         hr_die_card.pack(fill="x", pady=(0, 8))
 
@@ -700,7 +664,6 @@ class DiceArcadeGUI:
         )
         self.hr_status_label.pack()
 
-        # Action Buttons
         hr_actions = tk.Frame(self.hr_frame, bg=BG_DARK)
         hr_actions.pack(fill="x", pady=(0, 6))
 
@@ -776,7 +739,6 @@ class DiceArcadeGUI:
             self.hr_pwr_btn.config(state="normal")
 
             if self.hr_total > self.hr_bust_limit:
-                # Bust
                 play_sound("lose.wav")
                 lost = self.hr_pot if self.hr_double_mode else self.hr_wager
                 self.hr_losses += 1
@@ -846,7 +808,6 @@ class DiceArcadeGUI:
         payout = self.hr_wager * 2
         new_pot = self.hr_pot + payout if self.hr_double_mode else payout
 
-        # Offer Double Up
         if (self.hr_win_high - 1) >= self.hr_win_low:
             resp = messagebox.askyesno(
                 "👑 WINNER!",
@@ -890,9 +851,6 @@ class DiceArcadeGUI:
             self.hr_wager_locked = False
         self.set_hr_wager(self.hr_wager)
 
-    # =========================================================================
-    # TAB SWITCHER
-    # =========================================================================
     def switch_mode(self, mode):
         """Switch between Pig and High Roller views."""
         self.current_mode = mode
