@@ -312,7 +312,7 @@ class HighRollerCLI:
         print("├────────────────────────────────────────────────────────┤")
         print(f"│  Wins: {self.session_wins:<4} | Losses: {self.session_losses:<4} | Pot: {self.accumulated_pot} coins | Wager: ${self.current_wager:<4} │")
         print(f"│  Target Range: {WIN_LOW}–{self.win_high:<2} | Bust Threshold: >{BUST_THRESHOLD:<2}              │")
-        print(f"│  Current Round Total: {self.total:<33}│")
+        print("│  Round Total: [Hidden — track in your head!]           │")
         print("└────────────────────────────────────────────────────────┘")
 
     def set_wager_prompt(self):
@@ -343,10 +343,9 @@ class HighRollerCLI:
 
         print(f"\nYou rolled a {roll}!")
         print(render_dice_art([roll]))
-        print(f"Running Total: {self.total} (Win range: {WIN_LOW}–{self.win_high})\n")
 
         if self.total > BUST_THRESHOLD:
-            self.handle_bust(f"Total reached {self.total} — over {BUST_THRESHOLD}!")
+            self.handle_bust(f"Exceeded {BUST_THRESHOLD}! Final total was {self.total}.")
             return False
         return True
 
@@ -361,17 +360,15 @@ class HighRollerCLI:
             self.total += 20
             self.power_down_streak = 0
             play_sound("backfire.wav")
-            print("\n💥 Power Down BACKFIRED! +20 added to your total!")
-            print(f"Running Total: {self.total}\n")
+            print("\n💥 Power Down BACKFIRED! +20 added to your hidden total!\n")
             if self.total > BUST_THRESHOLD:
-                self.handle_bust("Power Down overload caused a bust!")
+                self.handle_bust(f"Power Down backfire exceeded {BUST_THRESHOLD}! Final total was {self.total}.")
                 return False
         else:
             reduction = random.randint(1, 5)
             self.total = max(0, self.total - reduction)
             play_sound("powerdown.wav")
-            print(f"\n⚡ Power Down activated! -{reduction} (Streak: {self.power_down_streak}/3)")
-            print(f"Running Total: {self.total} (Win range: {WIN_LOW}–{self.win_high})\n")
+            print(f"\n⚡ Power Down activated! -{reduction} (Streak: {self.power_down_streak}/3)\n")
         return True
 
     def checkout(self):
@@ -383,9 +380,8 @@ class HighRollerCLI:
         if WIN_LOW <= self.total <= self.win_high:
             return self.handle_win()
 
-        print(f"\nNot there yet! Your total is {self.total}.")
-        print(f"You need between {WIN_LOW} and {self.win_high} to win.\n")
-        return None
+        self.handle_bust(f"Failed Check Out! Final total was {self.total} (outside {WIN_LOW}–{self.win_high}).")
+        return False
 
     def handle_bust(self, reason):
         """Handle player bust."""

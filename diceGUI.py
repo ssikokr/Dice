@@ -647,7 +647,7 @@ class DiceArcadeGUI:
 
         self.hr_total_label = tk.Label(
             hr_die_card,
-            text="Round Total: 0",
+            text="Round Total: [Hidden]",
             font=FONT_SCORE,
             fg=TEXT_PRIMARY,
             bg=CARD_BG,
@@ -735,15 +735,15 @@ class DiceArcadeGUI:
 
         def finish(val):
             self.hr_total += val
-            self.hr_total_label.config(text=f"Round Total: {self.hr_total}")
             self.hr_pwr_btn.config(state="normal")
+            self.hr_check_btn.config(state="normal")
 
             if self.hr_total > self.hr_bust_limit:
                 play_sound("lose.wav")
                 lost = self.hr_pot if self.hr_double_mode else self.hr_wager
                 self.hr_losses += 1
                 self.hr_status_label.config(
-                    text=f"💀 BUST! Total reached {self.hr_total} (>20). Lost ${lost}!",
+                    text=f"💀 BUST! Exceeded {self.hr_bust_limit}! Final total was {self.hr_total}. Lost ${lost}!",
                     fg=ACCENT_RED,
                 )
                 self.hr_double_mode = False
@@ -752,18 +752,10 @@ class DiceArcadeGUI:
                 self.reset_hr_round()
                 return
 
-            if self.hr_win_low <= self.hr_total <= self.hr_win_high:
-                self.hr_check_btn.config(state="normal")
-                self.hr_status_label.config(
-                    text=f"👑 Inside Win Range ({self.hr_win_low}–{self.hr_win_high})! Check Out to win!",
-                    fg=ACCENT_GREEN,
-                )
-            else:
-                self.hr_check_btn.config(state="disabled")
-                self.hr_status_label.config(
-                    text=f"Total is {self.hr_total}. Target: {self.hr_win_low}–{self.hr_win_high}.",
-                    fg=TEXT_PRIMARY,
-                )
+            self.hr_status_label.config(
+                text=f"Rolled a {val}. Total is hidden — roll again, Power Down, or Check Out.",
+                fg=TEXT_PRIMARY,
+            )
 
         self.animate_roll(roll_val, finish)
 
@@ -776,68 +768,97 @@ class DiceArcadeGUI:
             play_sound("backfire.wav")
             self.hr_total += 20
             self.hr_power_streak = 0
-            self.hr_total_label.config(text=f"Round Total: {self.hr_total}")
             if self.hr_total > self.hr_bust_limit:
                 self.hr_losses += 1
                 play_sound("lose.wav")
-                self.hr_status_label.config(text="💥 Power Down BACKFIRED! +20 caused a BUST!", fg=ACCENT_RED)
+                lost = self.hr_pot if self.hr_double_mode else self.hr_wager
+                self.hr_status_label.config(
+                    text=f"💥 Power Down BACKFIRED (+20)! BUST! Final total was {self.hr_total}. Lost ${lost}!",
+                    fg=ACCENT_RED,
+                )
+                self.hr_double_mode = False
+                self.hr_pot = 0
+                self.hr_win_high = 6
                 self.reset_hr_round()
                 return
+            self.hr_status_label.config(
+                text="💥 Power Down BACKFIRED! +20 added to your hidden total!",
+                fg=ACCENT_RED,
+            )
         else:
             play_sound("powerdown.wav")
             reduction = random.randint(1, 5)
             self.hr_total = max(0, self.hr_total - reduction)
-            self.hr_total_label.config(text=f"Round Total: {self.hr_total}")
             self.hr_status_label.config(
                 text=f"⚡ Power Down: -{reduction} (Streak: {self.hr_power_streak}/3).",
                 fg=TEXT_PRIMARY,
             )
 
-        if self.hr_win_low <= self.hr_total <= self.hr_win_high:
-            self.hr_check_btn.config(state="normal")
-        else:
-            self.hr_check_btn.config(state="disabled")
-
     def on_hr_checkout(self):
-        """Handle winning checkout and double up."""
-        if not (self.hr_win_low <= self.hr_total <= self.hr_win_high):
+        """Handle checkout decision."""
+        if not self.hr_rolled_round:
             return
 
-        play_sound("win.wav")
-        self.hr_wins += 1
-        payout = self.hr_wager * 2
-        new_pot = self.hr_pot + payout if self.hr_double_mode else payout
+        if self.hr_win_low <= self.hr_total <= self.hr_win_high:
+            play_sound("win.wav")
+            self.hr_wins += 1
+            payout = self.hr_wager * 2
+            new_pot = self.hr_pot + payout if self.hr_double_mode else payout
 
-        if (self.hr_win_high - 1) >= self.hr_win_low:
-            resp = messagebox.askyesno(
-                "👑 WINNER!",
-                f"You won {payout} coins! (Total Pot: {new_pot})\n\n"
-                f"Double Up for the next round?\n"
-                f"• Wager becomes ${payout}\n"
-                f"• Win range narrows to {self.hr_win_low}–{self.hr_win_high - 1}\n",
+            if (self.hr_win_high - 1) >= self.hr_win_low:
+                resp = messagebox.askyesno(
+                    "👑 WINNER!",
+                    f"Success! Your hidden total was {self.hr_total} (inside {self.hr_win_low}–{self.hr_win_high})!\n"
+                    f"You won {payout} coins! (Total Pot: {new_pot})\n\n"
+                    f"Double Up for the next round?\n"
+                    f"• Wager becomes ${payout}\n"
+                    f"• Win range narrows to {self.hr_win_low}–{self.hr_win_high - 1}\n",
+                )
+                if resp:
+                    self.hr_double_mode = True
+                    self.hr_pot = new_pot
+                    self.hr_wager = payout
+                    self.hr_win_high -= 1
+                    self.hr_mode_badge.config(text="[DOUBLE UP ACTIVE]")
+                    self.reset_hr_round()
+                    return
+
+            messagebox.showinfo(
+                "💰 Cashed Out",
+                f"Success! Your hidden total was {self.hr_total} (inside {self.hr_win_low}–{self.hr_win_high})!\n"
+                f"Successfully cashed out {new_pot} coins!",
             )
-            if resp:
-                self.hr_double_mode = True
-                self.hr_pot = new_pot
-                self.hr_wager = payout
-                self.hr_win_high -= 1
-                self.hr_mode_badge.config(text="[DOUBLE UP ACTIVE]")
-                self.reset_hr_round()
-                return
-
-        messagebox.showinfo("💰 Cashed Out", f"Successfully cashed out {new_pot} coins!")
-        self.hr_double_mode = False
-        self.hr_pot = 0
-        self.hr_win_high = 6
-        self.hr_mode_badge.config(text="")
-        self.reset_hr_round()
+            self.hr_double_mode = False
+            self.hr_pot = 0
+            self.hr_win_high = 6
+            self.hr_mode_badge.config(text="")
+            self.reset_hr_round()
+        else:
+            play_sound("lose.wav")
+            lost = self.hr_pot if self.hr_double_mode else self.hr_wager
+            self.hr_losses += 1
+            self.hr_status_label.config(
+                text=f"💀 Failed Check Out! Final total was {self.hr_total} (outside {self.hr_win_low}–{self.hr_win_high}). Lost ${lost}!",
+                fg=ACCENT_RED,
+            )
+            messagebox.showwarning(
+                "💀 Missed Checkout!",
+                f"Checkout Failed!\n"
+                f"Your hidden total was {self.hr_total}, which was outside the target {self.hr_win_low}–{self.hr_win_high}.\n"
+                f"You lost ${lost}!",
+            )
+            self.hr_double_mode = False
+            self.hr_pot = 0
+            self.hr_win_high = 6
+            self.hr_mode_badge.config(text="")
+            self.reset_hr_round()
 
     def reset_hr_round(self):
         """Reset state for a new High Roller round."""
         self.hr_total = 0
         self.hr_rolled_round = False
         self.hr_power_streak = 0
-        self.hr_total_label.config(text="Round Total: 0")
+        self.hr_total_label.config(text="Round Total: [Hidden]")
         self.hr_stats_label.config(
             text=f"Wins: {self.hr_wins}  |  Losses: {self.hr_losses}  |  Pot: {self.hr_pot} coins"
         )

@@ -29,22 +29,27 @@ A strategic race against an opponent (Computer AI or Player 2) where players pus
 
 ---
 
-### 2. High Roller (Vegas Casino Mode)
-An intense single-die target accumulation game with wagering, power-down risk mitigation, and streak multipliers.
+### 2. High Roller (Vegas Casino Mode — Blind Rules)
+An intense single-die target accumulation game with wagering, power-down risk mitigation, and hidden standing mechanics.
 
 - **Target Win Range:** Accumulate a running total between **3 and 6** to win.
 - **Bust Condition:** If your running total exceeds **20**, you **Bust** and lose your active wager or pot.
+- **Blind / Hidden Standing Rules:**
+  - **No Standing Indicators:** Your round total is **completely hidden** throughout the round.
+  - **No Win Range Notifications:** You are never notified when you enter the win range or how close/far you are from winning or busting.
+  - **Mental Tracking:** You must track your rolls and reductions mentally.
+  - **High-Stakes Check Out:** You can attempt to Check Out at any point after rolling at least once. If your hidden total is inside the win range (3–6), you win **2× your wager**; if you are outside the win range, your check out fails and you lose the round!
 - **Gameplay Flow:**
   1. **Place Wager:** Select **$1**, **$5**, **$10**, or **$25** coins before making your initial roll (wager locks upon first roll).
-  2. **Roll Die:** Adds a single die roll (**1–6**) to your running total.
-  3. **Power Down:** Subtracts a random amount (**1–5**) from your total to bring you back down towards the win range.
+  2. **Roll Die:** Adds a single die roll (**1–6**) to your hidden running total.
+  3. **Power Down:** Subtracts a random amount (**1–5**) from your hidden total to bring you back down towards the win range.
      - ⚠️ **Backfire Hazard:** Using Power Down 3 times in a row overloads the system, adding **+20** to your total and almost certainly causing a bust!
-  4. **Check Out:** When your total is inside the win range (**3–6**), check out to receive **2× your wager**.
+  4. **Check Out:** Call Check Out when you believe your hidden total is inside the win range (**3–6**).
   5. **Double Up Mode:**
      - After any win, you can choose to **Double Up** rather than cashing out.
      - Your entire payout carries forward as the wager for the next round.
      - The target win range narrows by 1 (e.g., 3–6 → 3–5 → 3–4 → 3–3).
-     - Win again to double your pot again; bust and you forfeit the entire accumulated pot.
+     - Win again to double your pot again; bust or miss checkout and you forfeit the entire accumulated pot.
 
 ---
 
