@@ -1,61 +1,64 @@
-# High Roller Dice - Vegas Casino Edition
+# Dice Arcade - Sleek Minimalist Terminal Dice Games
 
-A feature-rich dice gambling game with a casino aesthetic, available in both a **Tkinter Graphical UI** (`diceGUI.py`) and an interactive **Terminal / CLI Edition** (`dice.py`).
-
----
-
-## Game Rules & Mechanics
-
-### Goal
-Roll a single die to accumulate a running total between **3 and 6** to win. If your total exceeds **20**, you **Bust** and lose your wager!
-
-### Gameplay Loop
-1. **Select Wager:** Choose between **$1**, **$5**, **$10**, or **$25** coins. Once you roll, your wager is locked for that round.
-2. **Roll Die:** Adds a random roll (**1–6**) to your running total.
-3. **Power Down:** Subtracts a random **1–5** from your total to help avoid busting.
-   - ⚠️ *Warning:* Using Power Down 3 times in a row backfires and adds **+20** to your total!
-4. **Check Out:** When your total is inside the win range (**3–6**), check out to win **double your wager** (`wager * 2`).
-5. **Double Up Mode:**
-   - On a win, you can choose to **Double Up** instead of cashing out.
-   - Your payout carries forward as the next round's wager.
-   - The win range narrows by 1 (e.g., 3–6 → 3–5 → 3–4 → 3–3).
-   - Win again to double your pot again; bust and you lose the pot.
-   - When the range reaches 3–3, winnings are automatically cashed out.
+An interactive suite of sleek, eye-catching terminal dice games featuring the classic push-your-luck game **Pig**, **High Roller Casino**, and a **Free Dice Roller** with realistic tumbling animations and clean typography.
 
 ---
 
-## Running the Game
+## Game Modes
+
+### 1. Pig (Push Your Luck) — *Featured*
+A fast-paced, addictive dice game of risk versus reward. Play against an intelligent **Computer AI Bot** or in **2-Player Local Pass & Play** mode!
+
+- **Objective:** First player to reach **50 points** (or target score) wins.
+- **Rules:**
+  - On your turn, roll the die repeatedly to accumulate **Turn Points**.
+  - **Roll 2–6:** The roll adds to your active turn points. Roll again or choose to bank.
+  - **Roll a 1 ("Pig Out"):** You lose **all unbanked points** accumulated during that turn, and your turn ends immediately!
+  - **Bank Points:** Safely adds your turn points to your permanent bank score.
+- **Sleek Visuals:** Minimalist progress bars (`[██████░░░░] 25/50`), clean box-drawing frames, and dynamic tumbling roll animations.
+
+### 2. High Roller (Vegas Casino CLI)
+- Roll a single die to build a total inside the win range (**3–6**).
+- Use **Power Down** (-1 to -5) to avoid busting over **20** (beware: 3 consecutive uses backfire!).
+- Check out when in range to win double your wager, or **Double Up** to narrow the range and multiply your pot!
+
+### 3. Free Dice Roller (Multi-Dice Sandbox)
+- Roll anywhere from 1 to 5 dice simultaneously with ASCII art faces and running statistics (total rolls, highest total, average roll).
+
+### 4. High Roller Desktop GUI (`diceGUI.py`)
+- Full desktop Tkinter GUI application featuring green felt casino aesthetic, image-rendered dice faces, and sound effects.
+
+---
+
+## How to Run
 
 ### Requirements
 - **Python 3.8+**
-- **Pillow** (for GUI image rendering):
+- **Pillow** (optional, needed only for GUI mode):
   ```bash
   pip install -r requirements.txt
   ```
-- *Sound effects are supported on Windows via `winsound`.*
+- *Sound effects are supported automatically on Windows via `winsound`.*
 
-### 1. Graphical Interface (GUI)
-Run the desktop GUI with felt green casino styling, visual dice faces, sound effects, and scoreboard:
-
-```bash
-python diceGUI.py
-```
-*(Also callable via `python dicevGUI.py`)*
-
-### 2. Command Line Interface (CLI)
-Play the full game in your terminal with single-die ASCII art:
-
+### Launch Terminal Arcade
 ```bash
 python dice.py
 ```
 
-#### CLI Controls:
+Press **`Enter`** at the main menu to immediately launch **Pig vs Computer Bot**!
+
+#### Pig Controls:
+- **`Enter`** or **`r`**: Roll die
+- **`b`**: Bank points and pass turn
+- **`q`**: Quit game
+
+#### High Roller CLI Controls:
 - **`Enter`** or **`r`**: Roll single die
 - **`p`**: Power Down (-1 to -5)
 - **`c`**: Check Out (if total is within win range)
-- **`w`**: Change wager (before rolling)
-- **`g`**: Launch GUI version
-- **`q`**: Quit and view session summary
+- **`w`**: Change wager ($1, $5, $10, $25)
+- **`g`**: Launch desktop GUI (`diceGUI.py`)
+- **`q`**: Quit round
 
 ---
 
@@ -63,7 +66,7 @@ python dice.py
 
 ```
 Dice/
-├── dice.py            # Terminal / CLI High Roller game
+├── dice.py            # Terminal Dice Arcade (Pig, High Roller, Free Roller)
 ├── diceGUI.py         # Tkinter GUI High Roller game
 ├── dicevGUI.py        # Alias launcher for diceGUI.py
 ├── requirements.txt   # Python dependencies (Pillow)

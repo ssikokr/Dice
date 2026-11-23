@@ -1,87 +1,297 @@
-"""High Roller Dice Game (CLI Edition).
+"""Dice Arcade - Sleek Minimalist Terminal Dice Games.
 
-A dice gambling game based on High Roller Dice (diceGUI.py).
-Roll a single die, accumulate your total towards the target win range (3-6),
-use Power Down strategically to avoid busting over 20, and risk it all
-with Double Up!
+Featuring:
+1. Pig: The classic push-your-luck dice game (vs Bot AI or 2-Player).
+2. High Roller: Vegas casino-style target range gambling.
+3. Free Roller: Multi-dice sandbox with session statistics.
 """
 
 import os
 import random
 import subprocess
 import sys
+import time
 
-# Theme & Win Range Constants matching diceGUI.py
-WIN_LOW = 3
-WIN_HIGH_START = 6
-BUST_THRESHOLD = 20
-WAGER_OPTIONS = [1, 5, 10, 25]
+try:
+    import winsound
+    HAS_SOUND = True
+except ImportError:
+    HAS_SOUND = False
 
-# Single-die ASCII Art representation (1-7)
-DICE_ART = {
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def play_sound(filename):
+    """Play a sound file asynchronously if audio is supported."""
+    if not HAS_SOUND:
+        return
+    path = os.path.join(BASE_DIR, filename)
+    if os.path.exists(path):
+        try:
+            winsound.PlaySound(path, winsound.SND_FILENAME | winsound.SND_ASYNC)
+        except Exception:  # pylint: disable=broad-exception-caught
+            pass
+
+
+# Sleek, clean ASCII die faces (1-6)
+DICE_FACES = {
     1: (
-        "+-------+",
-        "|       |",
-        "|   o   |",
-        "|       |",
-        "+-------+",
+        "┌─────────┐",
+        "│         │",
+        "│    o    │",
+        "│         │",
+        "└─────────┘",
     ),
     2: (
-        "+-------+",
-        "| o     |",
-        "|       |",
-        "|     o |",
-        "+-------+",
+        "┌─────────┐",
+        "│  o      │",
+        "│         │",
+        "│      o  │",
+        "└─────────┘",
     ),
     3: (
-        "+-------+",
-        "| o     |",
-        "|   o   |",
-        "|     o |",
-        "+-------+",
+        "┌─────────┐",
+        "│  o      │",
+        "│    o    │",
+        "│      o  │",
+        "└─────────┘",
     ),
     4: (
-        "+-------+",
-        "| o   o |",
-        "|       |",
-        "| o   o |",
-        "+-------+",
+        "┌─────────┐",
+        "│  o   o  │",
+        "│         │",
+        "│  o   o  │",
+        "└─────────┘",
     ),
     5: (
-        "+-------+",
-        "| o   o |",
-        "|   o   |",
-        "| o   o |",
-        "+-------+",
+        "┌─────────┐",
+        "│  o   o  │",
+        "│    o    │",
+        "│  o   o  │",
+        "└─────────┘",
     ),
     6: (
-        "+-------+",
-        "| o   o |",
-        "| o   o |",
-        "| o   o |",
-        "+-------+",
-    ),
-    7: (
-        "+-------+",
-        "| o   o |",
-        "| o o o |",
-        "| o   o |",
-        "+-------+",
+        "┌─────────┐",
+        "│  o   o  │",
+        "│  o   o  │",
+        "│  o   o  │",
+        "└─────────┘",
     ),
 }
 
 
-def render_die(val):
-    """Return ASCII art string for a single die.
+def render_dice_art(dice_values):
+    """Render one or more dice side-by-side using sleek ASCII art.
 
     Args:
-        val: Integer value representing the die face.
+        dice_values: A list of integers (1-6).
 
     Returns:
-        Rendered ASCII string representation of the die.
+        A formatted string representing the dice rendered side by side.
     """
-    art = DICE_ART.get(val, DICE_ART[1])
-    return "\n".join(art)
+    lines = ["", "", "", "", ""]
+    for val in dice_values:
+        art = DICE_FACES.get(val, DICE_FACES[1])
+        for i in range(5):
+            lines[i] += art[i] + "  "
+    return "\n".join(lines)
+
+
+def animated_roll(num_dice=1, animate=True):
+    """Roll dice with an optional sleek tumbling animation.
+
+    Args:
+        num_dice: Number of dice to roll (default: 1).
+        animate: Whether to display tumbling frames (skipped if non-interactive).
+
+    Returns:
+        List of rolled integer values.
+    """
+    is_interactive = sys.stdout.isatty() and animate
+    play_sound("roll.wav")
+
+    if is_interactive:
+        frames = 5
+        for _ in range(frames):
+            temp_rolls = [random.randint(1, 6) for _ in range(num_dice)]
+            dice_repr = " ".join(f"[{v}]" for v in temp_rolls)
+            sys.stdout.write(f"\r  Rolling... {dice_repr} ")
+            sys.stdout.flush()
+            time.sleep(0.06)
+        sys.stdout.write("\r" + " " * 32 + "\r")
+        sys.stdout.flush()
+
+    return [random.randint(1, 6) for _ in range(num_dice)]
+
+
+def make_progress_bar(current, target, width=16):
+    """Generate a sleek, minimalist text progress bar."""
+    ratio = min(1.0, max(0.0, current / target if target > 0 else 0.0))
+    filled = int(round(ratio * width))
+    empty = width - filled
+    bar = "█" * filled + "░" * empty
+    return f"[{bar}] {current:2d}/{target}"
+
+
+# ============================================================================
+# Game Mode 1: Pig (Push-Your-Luck)
+# ============================================================================
+class PigGame:
+    """Sleek implementation of the classic Pig push-your-luck dice game."""
+
+    def __init__(self, target_score=50, vs_bot=True):
+        self.target_score = target_score
+        self.vs_bot = vs_bot
+        self.scores = [0, 0]
+        self.names = ["Player", "Bot (AI)"] if vs_bot else ["Player 1", "Player 2"]
+        self.current_turn = 0
+        self.turn_score = 0
+
+    def show_scoreboard(self):
+        """Display a clean, minimalist scoreboard with progress bars."""
+        p1_bar = make_progress_bar(self.scores[0], self.target_score)
+        p2_bar = make_progress_bar(self.scores[1], self.target_score)
+
+        print("\n┌────────────────────────────────────────────────────────┐")
+        print(f"│  PIG — PUSH YOUR LUCK                    Target: {self.target_score:<5} │")
+        print("├────────────────────────────────────────────────────────┤")
+        print(f"│  {self.names[0]:<12}: {p1_bar:<39}│")
+        print(f"│  {self.names[1]:<12}: {p2_bar:<39}│")
+        print("└────────────────────────────────────────────────────────┘")
+
+    def switch_turn(self):
+        """Switch active turn between players."""
+        self.turn_score = 0
+        self.current_turn = 1 - self.current_turn
+
+    def play_bot_turn(self):
+        """Execute the computer bot's turn with strategic risk thresholds."""
+        print(f"\n>> {self.names[1]}'s turn...")
+        if sys.stdout.isatty():
+            time.sleep(0.5)
+
+        while True:
+            # Bot strategy: Bank immediately if winning; otherwise bank at 15+ points
+            if self.scores[1] + self.turn_score >= self.target_score:
+                break
+            if self.turn_score >= 15 or (self.scores[1] >= 35 and self.turn_score >= 10):
+                break
+
+            roll = animated_roll(1)[0]
+            print(f"  {self.names[1]} rolled a {roll}:")
+            print(render_dice_art([roll]))
+
+            if roll == 1:
+                play_sound("lose.wav")
+                print(f"  >> 💥 PIG OUT! {self.names[1]} rolled a 1 — turn points lost.\n")
+                self.switch_turn()
+                return
+
+            self.turn_score += roll
+            projected = self.scores[1] + self.turn_score
+            print(f"  (Turn: +{self.turn_score} | Bank if held: {projected}/{self.target_score})\n")
+
+            if projected >= self.target_score:
+                break
+
+            if sys.stdout.isatty():
+                time.sleep(0.4)
+
+        # Bot decides to bank
+        self.scores[1] += self.turn_score
+        play_sound("neutral.wav")
+        print(f"  >> 💰 {self.names[1]} banks {self.turn_score} points! Total: {self.scores[1]}/{self.target_score}\n")
+        self.switch_turn()
+
+    def run(self):
+        """Run the Pig game loop."""
+        print("\n========================================================")
+        print("                 P I G   D I C E   G A M E              ")
+        print("========================================================")
+        print(f"Rules: First to {self.target_score} points wins!")
+        print("• Roll repeatedly to accumulate turn points.")
+        print("• Roll a 1 ('Pig Out') and you lose all unbanked points this turn!")
+        print("• Bank anytime to permanently lock in your turn score.\n")
+
+        while max(self.scores) < self.target_score:
+            self.show_scoreboard()
+
+            # Handle bot turn
+            if self.vs_bot and self.current_turn == 1:
+                self.play_bot_turn()
+                continue
+
+            # Handle human turn
+            active_name = self.names[self.current_turn]
+            projected = self.scores[self.current_turn] + self.turn_score
+            print(f"Active: {active_name} | Turn Points: +{self.turn_score} | Projected: {projected}/{self.target_score}")
+            prompt = "Action: [Enter/R]oll | [B]ank points | [Q]uit game: "
+
+            try:
+                action = input(prompt).strip().lower()
+            except EOFError:
+                # Non-interactive fallback (demo roll for CI)
+                print("\n[Non-interactive environment detected: performing demo turn]")
+                action = "r"
+            except KeyboardInterrupt:
+                print("\nGame session cancelled.")
+                break
+
+            if action in ("q", "quit", "exit"):
+                print("\nExiting Pig game. Thanks for playing!")
+                break
+
+            if action in ("b", "bank", "hold"):
+                if self.turn_score == 0:
+                    print("  (!) You must roll at least once before banking!\n")
+                    continue
+                self.scores[self.current_turn] += self.turn_score
+                play_sound("neutral.wav")
+                print(f"\n  >> 💰 Banked {self.turn_score} points! Total: {self.scores[self.current_turn]}/{self.target_score}\n")
+                if self.scores[self.current_turn] >= self.target_score:
+                    break
+                self.switch_turn()
+                continue
+
+            if action in ("", "r", "roll"):
+                roll = animated_roll(1)[0]
+                print(f"\nYou rolled a {roll}:")
+                print(render_dice_art([roll]))
+
+                if roll == 1:
+                    play_sound("lose.wav")
+                    print("  >> 💥 PIG OUT! You rolled a 1 — all unbanked turn points lost!\n")
+                    self.switch_turn()
+                    if not sys.stdout.isatty():
+                        break
+                else:
+                    self.turn_score += roll
+                    total_proj = self.scores[self.current_turn] + self.turn_score
+                    if total_proj >= self.target_score:
+                        self.scores[self.current_turn] = total_proj
+                        play_sound("win.wav")
+                        break
+                    print(f"  (Turn Points: +{self.turn_score} | Bank if held: {total_proj}/{self.target_score})\n")
+                    if not sys.stdout.isatty():
+                        break
+            else:
+                print(f"Unknown action '{action}'. Press Enter to roll, 'b' to bank, or 'q' to quit.\n")
+
+        # Game over outcome
+        if max(self.scores) >= self.target_score:
+            self.show_scoreboard()
+            winner_idx = 0 if self.scores[0] >= self.target_score else 1
+            play_sound("win.wav")
+            print(f"\n🏆 VICTORY! {self.names[winner_idx]} has won the match with {self.scores[winner_idx]} points!\n")
+
+
+# ============================================================================
+# Game Mode 2: High Roller (Casino Win Range)
+# ============================================================================
+WIN_LOW = 3
+WIN_HIGH_START = 6
+BUST_THRESHOLD = 20
+WAGER_OPTIONS = [1, 5, 10, 25]
 
 
 class HighRollerCLI:
@@ -99,46 +309,38 @@ class HighRollerCLI:
         self.accumulated_pot = 0
         self.win_high = WIN_HIGH_START
 
-    def reset_round(self, full_session=False):
-        """Reset state for a new round or full session."""
+    def reset_round(self):
+        """Reset state for a new round."""
         self.total = 0
         self.rolled_this_round = False
         self.power_down_streak = 0
-
-        if full_session:
-            self.win_high = WIN_HIGH_START
-            self.double_up_mode = False
-            self.accumulated_pot = 0
-            self.current_wager = 5
-            self.session_wins = 0
-            self.session_losses = 0
-
         if not self.double_up_mode:
             self.wager_locked = False
 
     def show_scoreboard(self):
         """Print the current scoreboard and balance."""
-        mode_str = " 🔥 DOUBLE UP MODE 🔥" if self.double_up_mode else ""
-        print("\n" + "=" * 48)
-        print(f" [HIGH ROLLER DICE]{mode_str}")
-        print(f" WINS: {self.session_wins} | LOSSES: {self.session_losses} | POT: {self.accumulated_pot} coins")
-        print(f" WIN RANGE: {WIN_LOW}–{self.win_high} | BUST AT: >{BUST_THRESHOLD} | WAGER: ${self.current_wager}")
-        print(f" CURRENT ROUND TOTAL: {self.total}")
-        print("=" * 48)
+        mode_str = " [DOUBLE UP ACTIVE]" if self.double_up_mode else ""
+        print("\n┌────────────────────────────────────────────────────────┐")
+        print(f"│  HIGH ROLLER CASINO{mode_str:<35}│")
+        print("├────────────────────────────────────────────────────────┤")
+        print(f"│  Wins: {self.session_wins:<4} | Losses: {self.session_losses:<4} | Pot: {self.accumulated_pot} coins | Wager: ${self.current_wager:<4} │")
+        print(f"│  Target Range: {WIN_LOW}–{self.win_high:<2} | Bust Threshold: >{BUST_THRESHOLD:<2}              │")
+        print(f"│  Current Round Total: {self.total:<33}│")
+        print("└────────────────────────────────────────────────────────┘")
 
     def set_wager_prompt(self):
         """Allow player to set wager before rolling."""
         if self.wager_locked or self.double_up_mode:
-            print("\nWager is currently locked for this round!")
+            print("\nWager is currently locked for this round!\n")
             return
         print(f"\nAvailable wagers: {WAGER_OPTIONS}")
         try:
             choice = input(f"Select wager (${self.current_wager}): ").strip()
             if choice.isdigit() and int(choice) in WAGER_OPTIONS:
                 self.current_wager = int(choice)
-                print(f"Wager set to ${self.current_wager}.")
+                print(f"Wager set to ${self.current_wager}.\n")
             elif choice:
-                print(f"Invalid wager. Keeping ${self.current_wager}.")
+                print(f"Invalid wager. Keeping ${self.current_wager}.\n")
         except (EOFError, KeyboardInterrupt):
             pass
 
@@ -149,11 +351,11 @@ class HighRollerCLI:
         self.rolled_this_round = True
         self.power_down_streak = 0
 
-        roll = random.randint(1, 6)
+        roll = animated_roll(1)[0]
         self.total += roll
 
         print(f"\nYou rolled a {roll}!")
-        print(render_die(roll))
+        print(render_dice_art([roll]))
         print(f"Running Total: {self.total} (Win range: {WIN_LOW}–{self.win_high})\n")
 
         if self.total > BUST_THRESHOLD:
@@ -171,6 +373,7 @@ class HighRollerCLI:
         if self.power_down_streak == 3:
             self.total += 20
             self.power_down_streak = 0
+            play_sound("backfire.wav")
             print("\n💥 Power Down BACKFIRED! +20 added to your total!")
             print(f"Running Total: {self.total}\n")
             if self.total > BUST_THRESHOLD:
@@ -179,6 +382,7 @@ class HighRollerCLI:
         else:
             reduction = random.randint(1, 5)
             self.total = max(0, self.total - reduction)
+            play_sound("powerdown.wav")
             print(f"\n⚡ Power Down activated! -{reduction} (Streak: {self.power_down_streak}/3)")
             print(f"Running Total: {self.total} (Win range: {WIN_LOW}–{self.win_high})\n")
         return True
@@ -200,8 +404,9 @@ class HighRollerCLI:
         """Handle player bust."""
         lost_amount = self.accumulated_pot if self.double_up_mode else self.current_wager
         self.session_losses += 1
+        play_sound("lose.wav")
         print(f"\n💀 BUST! {reason}")
-        print(f"You lost {lost_amount} coin(s)!")
+        print(f"You lost {lost_amount} coin(s)!\n")
 
         self.double_up_mode = False
         self.accumulated_pot = 0
@@ -213,8 +418,9 @@ class HighRollerCLI:
         self.session_wins += 1
         payout = self.current_wager * 2
         new_pot = self.accumulated_pot + payout if self.double_up_mode else payout
+        play_sound("win.wav")
 
-        print(f"\n👑 KING! Total is {self.total} — inside {WIN_LOW}–{self.win_high}!")
+        print(f"\n👑 WINNER! Total is {self.total} — inside {WIN_LOW}–{self.win_high}!")
         print(f"You won {payout} coins this round!")
 
         can_double = (self.win_high - 1) >= WIN_LOW
@@ -223,28 +429,26 @@ class HighRollerCLI:
         if can_double:
             try:
                 prompt = (
-                    f"\n🔥 DOUBLE UP?\n"
+                    f"\nDOUBLE UP?\n"
                     f"  • Carry {payout} coins into next round as wager\n"
                     f"  • Win range shrinks to {WIN_LOW}–{self.win_high - 1}\n"
-                    f"  • Win = double your pot again | Bust = lose everything\n"
+                    f"  • Win = double pot again | Bust = lose pot\n"
                     f"Double Up? (y/N): "
                 )
                 ans = input(prompt).strip().lower()
                 going_double = ans in ("y", "yes")
             except (EOFError, KeyboardInterrupt):
                 going_double = False
-        else:
-            print(f"Win range is at minimum ({WIN_LOW}–{self.win_high}). Cashing out automatically!")
 
         if going_double:
             self.double_up_mode = True
             self.accumulated_pot = new_pot
             self.current_wager = payout
             self.win_high -= 1
-            print(f"🔥 DOUBLE UP ACTIVE! Next round wager: ${self.current_wager}, Range: {WIN_LOW}–{self.win_high}")
+            print(f"🔥 DOUBLE UP ACTIVE! Next round wager: ${self.current_wager}, Range: {WIN_LOW}–{self.win_high}\n")
             self.reset_round()
         else:
-            print(f"💰 Cashed out {new_pot} coins! Great game!")
+            print(f"💰 Cashed out {new_pot} coins! Great round!\n")
             self.double_up_mode = False
             self.accumulated_pot = 0
             self.win_high = WIN_HIGH_START
@@ -253,15 +457,12 @@ class HighRollerCLI:
         return True
 
     def run(self):
-        """Main game loop."""
-        print("=========================================")
-        print("   🎰 HIGH ROLLER DICE (Vegas Casino) 🎰   ")
-        print("=========================================")
-        print("Rules:")
-        print(f" • Roll 1 die to build a total between {WIN_LOW} and {self.win_high}.")
-        print(" • Use Power Down (-1 to -5) if you get close to 20.")
-        print(f" • Exceed {BUST_THRESHOLD} and you BUST!")
-        print(" • Win and Double Up to shrink the win range and multiply winnings!\n")
+        """Main game loop for High Roller."""
+        print("\n========================================================")
+        print("                 H I G H   R O L L E R                  ")
+        print("========================================================")
+        print(f"Rules: Roll 1 die to build a total between {WIN_LOW} and {self.win_high}.")
+        print("Use Power Down strategically to avoid busting over 20!\n")
 
         while True:
             self.show_scoreboard()
@@ -273,21 +474,16 @@ class HighRollerCLI:
                 action = input(prompt).strip().lower()
             except EOFError:
                 if self.session_wins == 0 and self.session_losses == 0:
-                    print("\n[Non-interactive mode: running demo roll]")
                     self.roll_die()
                     if WIN_LOW <= self.total <= self.win_high:
                         self.checkout()
-                    print("\nDemo completed. Exiting.")
                 break
             except KeyboardInterrupt:
-                print("\nSession interrupted.")
                 break
 
             if action in ("q", "quit", "exit"):
-                print("\nThanks for playing High Roller Dice!")
-                self.show_scoreboard()
+                print("\nThanks for playing High Roller!")
                 break
-
             if action in ("", "r", "roll"):
                 self.roll_die()
             elif action in ("p", "power", "powerdown"):
@@ -299,17 +495,131 @@ class HighRollerCLI:
             elif action in ("g", "gui"):
                 print("Launching GUI version (diceGUI.py)...")
                 try:
-                    subprocess.Popen([sys.executable, os.path.join(os.path.dirname(__file__), "diceGUI.py")])
+                    subprocess.Popen([sys.executable, os.path.join(BASE_DIR, "diceGUI.py")])
                 except Exception as exc:  # pylint: disable=broad-exception-caught
                     print(f"Could not launch GUI: {exc}")
             else:
-                print(f"Unknown action '{action}'. Choose [R]oll, [P]ower Down, [C]heck Out, [W]ager, or [Q]uit.")
+                print(f"Unknown action '{action}'. Choose [R]oll, [P]ower Down, [C]heck Out, [W]ager, or [Q]uit.\n")
 
 
+# ============================================================================
+# Game Mode 3: Free Dice Roller (Multi-Dice Sandbox)
+# ============================================================================
+def free_dice_roller():
+    """Interactive multi-dice rolling sandbox with session statistics."""
+    print("\n========================================================")
+    print("             F R E E   D I C E   R O L L E R            ")
+    print("========================================================")
+    print("Roll 1 to 5 dice at once with realistic ASCII visuals and stats.\n")
+
+    stats = {
+        "total_rolls": 0,
+        "total_dice": 0,
+        "highest_total": 0,
+        "sum_of_totals": 0,
+    }
+    num_dice = 2
+
+    while True:
+        try:
+            prompt = (
+                f"Press Enter to roll ({num_dice} dice), "
+                "1-5 to change count, 's' for stats, 'q' to quit: "
+            )
+            choice = input(prompt).strip().lower()
+        except EOFError:
+            if stats["total_rolls"] == 0:
+                choice = ""
+            else:
+                break
+        except KeyboardInterrupt:
+            break
+
+        if choice in ("q", "quit", "exit"):
+            print("\nSession complete.")
+            break
+
+        if choice == "s":
+            if stats["total_rolls"] == 0:
+                print("\nNo rolls recorded yet!\n")
+            else:
+                avg = stats["sum_of_totals"] / stats["total_rolls"]
+                print("\n--- Session Statistics ---")
+                print(f"Total Rolls     : {stats['total_rolls']}")
+                print(f"Dice Rolled     : {stats['total_dice']}")
+                print(f"Highest Total   : {stats['highest_total']}")
+                print(f"Average Total   : {avg:.2f}")
+                print("--------------------------\n")
+            continue
+
+        if choice.isdigit():
+            count = int(choice)
+            if 1 <= count <= 5:
+                num_dice = count
+                print(f"Dice count set to {num_dice}.\n")
+            else:
+                print("Please enter a number between 1 and 5.\n")
+            continue
+
+        if choice != "":
+            print(f"Unknown option '{choice}'. Press Enter to roll, or 'q' to quit.\n")
+            continue
+
+        rolls = animated_roll(num_dice)
+        total = sum(rolls)
+
+        stats["total_rolls"] += 1
+        stats["total_dice"] += num_dice
+        stats["sum_of_totals"] += total
+        if total > stats["highest_total"]:
+            stats["highest_total"] = total
+
+        print(f"\nRoll #{stats['total_rolls']}:")
+        print(render_dice_art(rolls))
+        if num_dice == 1:
+            print(f"You got: {rolls[0]}\n")
+        else:
+            dice_str = " + ".join(str(r) for r in rolls)
+            print(f"You got: {dice_str} = {total} (Total: {total})\n")
+
+
+# ============================================================================
+# Main Menu
+# ============================================================================
 def start_game():
-    """Start the High Roller CLI game."""
-    game = HighRollerCLI()
-    game.run()
+    """Main launcher entrypoint offering all dice game modes."""
+    print("┌────────────────────────────────────────────────────────┐")
+    print("│                   D I C E   A R C A D E                │")
+    print("│         Minimalist, Sleek Terminal Dice Games          │")
+    print("└────────────────────────────────────────────────────────┘")
+    print("  [1] Play Pig (vs Computer Bot)  -- [Default]")
+    print("  [2] Play Pig (2-Player Pass & Play)")
+    print("  [3] High Roller (Casino Win Range)")
+    print("  [4] Free Dice Roller (1-5 Dice & Stats)")
+    print("  [Q] Quit")
+    print()
+
+    try:
+        choice = input("Select a game [1-4, Q] (Press Enter for Pig vs Bot): ").strip().lower()
+    except EOFError:
+        # Non-interactive CI execution: launch Pig vs Bot for demo
+        choice = "1"
+    except KeyboardInterrupt:
+        return
+
+    if choice in ("", "1"):
+        PigGame(target_score=50, vs_bot=True).run()
+    elif choice == "2":
+        PigGame(target_score=50, vs_bot=False).run()
+    elif choice == "3":
+        HighRollerCLI().run()
+    elif choice == "4":
+        free_dice_roller()
+    elif choice in ("q", "quit", "exit"):
+        print("Goodbye!")
+    else:
+        print(f"Unknown choice '{choice}'. Launching Pig vs Bot...")
+        PigGame(target_score=50, vs_bot=True).run()
 
 
 if __name__ == "__main__":
