@@ -2,13 +2,15 @@ name: Run Dice Game
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, v3 ]
+  pull_request:
+    branches: [ main, v3 ]
   workflow_dispatch: # This gives you a "Run workflow" button!
 
 jobs:
   run-dice:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -18,5 +20,12 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
       - name: Run the dice game
-        run: python dice.py
+        run: python dice.py < /dev/null
+        env:
+          PYTHONUNBUFFERED: "1"
