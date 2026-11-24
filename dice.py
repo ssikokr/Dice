@@ -1,9 +1,11 @@
 """Dice Arcade - Sleek Minimalist Terminal Dice Games.
 
-Featuring:
-1. Pig: The classic push-your-luck dice game (vs Bot AI or 2-Player).
+V4 Edition Features:
+1. Pig: The classic push-your-luck game (vs 4-Tier Dynamic AI or 2-Player).
+   - Dynamic Bot AI: Cautious, Balanced, Aggressive, and Adaptive (Master).
 2. High Roller: Vegas casino-style target range gambling.
 3. Free Roller: Multi-dice sandbox with session statistics.
+4. Cross-Platform Audio: Windows, macOS, and Linux sound engine with Mute toggle.
 """
 
 import os
@@ -12,25 +14,10 @@ import subprocess
 import sys
 import time
 
-try:
-    import winsound
-    HAS_SOUND = True
-except ImportError:
-    HAS_SOUND = False
+from ai_bot import AI_DIFFICULTIES, evaluate_bot_decision, get_difficulty_name
+from audio import is_sound_enabled, play_sound, toggle_sound
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-
-def play_sound(filename):
-    """Play a sound file asynchronously if audio is supported."""
-    if not HAS_SOUND:
-        return
-    path = os.path.join(BASE_DIR, filename)
-    if os.path.exists(path):
-        try:
-            winsound.PlaySound(path, winsound.SND_FILENAME | winsound.SND_ASYNC)
-        except (OSError, RuntimeError):
-            pass
 
 
 DICE_FACES = {
@@ -128,18 +115,20 @@ def make_progress_bar(current, target, width=16):
     ratio = min(1.0, max(0.0, current / target if target > 0 else 0.0))
     filled = int(round(ratio * width))
     empty = width - filled
-    bar = "█" * filled + "░" * empty
-    return f"[{bar}] {current:2d}/{target}"
+    progress_str = "█" * filled + "░" * empty
+    return f"[{progress_str}] {current:2d}/{target}"
 
 
 class PigGame:
     """Sleek implementation of the classic Pig push-your-luck dice game."""
 
-    def __init__(self, target_score=50, vs_bot=True):
+    def __init__(self, target_score=50, vs_bot=True, ai_difficulty="balanced"):
         self.target_score = target_score
         self.vs_bot = vs_bot
+        self.ai_difficulty = ai_difficulty.lower()
+        diff_label = get_difficulty_name(self.ai_difficulty)
         self.scores = [0, 0]
-        self.names = ["Player", "Bot (AI)"] if vs_bot else ["Player 1", "Player 2"]
+        self.names = ["Player", f"Bot ({diff_label})"] if vs_bot else ["Player 1", "Player 2"]
         self.current_turn = 0
         self.turn_score = 0
 
@@ -167,9 +156,14 @@ class PigGame:
             time.sleep(0.5)
 
         while True:
-            if self.scores[1] + self.turn_score >= self.target_score:
-                break
-            if self.turn_score >= 15 or (self.scores[1] >= 35 and self.turn_score >= 10):
+            # Check if bot decides to bank
+            if evaluate_bot_decision(
+                self.ai_difficulty,
+                self.turn_score,
+                self.scores[1],
+                self.scores[0],
+                self.target_score,
+            ):
                 break
 
             roll = animated_roll(1)[0]
@@ -203,6 +197,9 @@ class PigGame:
         print("                 P I G   D I C E   G A M E              ")
         print("========================================================")
         print(f"Rules: First to {self.target_score} points wins!")
+        if self.vs_bot:
+            diff_desc = AI_DIFFICULTIES.get(self.ai_difficulty, {}).get("description", "")
+            print(f"Opponent: {self.names[1]} — {diff_desc}")
         print("• Roll repeatedly to accumulate turn points.")
         print("• Roll a 1 ('Pig Out') and you lose all unbanked points this turn!")
         print("• Bank anytime to permanently lock in your turn score.\n")
@@ -217,7 +214,7 @@ class PigGame:
             active_name = self.names[self.current_turn]
             projected = self.scores[self.current_turn] + self.turn_score
             print(f"Active: {active_name} | Turn Points: +{self.turn_score} | Projected: {projected}/{self.target_score}")
-            prompt = "Action: [Enter/R]oll | [B]ank points | [Q]uit game: "
+            prompt = "Action: [Enter/R]oll | [B]ank points | [M]ute/Sound | [Q]uit game: "
 
             try:
                 action = input(prompt).strip().lower()
@@ -231,6 +228,11 @@ class PigGame:
             if action in ("q", "quit", "exit"):
                 print("\nExiting Pig game. Thanks for playing!")
                 break
+
+            if action in ("m", "mute", "sound"):
+                state = toggle_sound()
+                print(f"\n  >> Sound effects turned {'ON' if state else 'OFF'}.\n")
+                continue
 
             if action in ("b", "bank", "hold"):
                 if self.turn_score == 0:
@@ -266,7 +268,7 @@ class PigGame:
                     if not sys.stdout.isatty():
                         break
             else:
-                print(f"Unknown action '{action}'. Press Enter to roll, 'b' to bank, or 'q' to quit.\n")
+                print(f"Unknown action '{action}'. Choose [R]oll, [B]ank, [M]ute, or [Q]uit.\n")
 
         if max(self.scores) >= self.target_score:
             self.show_scoreboard()
@@ -451,7 +453,7 @@ class HighRollerCLI:
             self.show_scoreboard()
             prompt = (
                 "Actions: [Enter/R]oll | [P]ower Down | [C]heck Out | "
-                "[W]ager | [G]UI | [Q]uit: "
+                "[W]ager | [M]ute/Sound | [G]UI | [Q]uit: "
             )
             try:
                 action = input(prompt).strip().lower()
@@ -467,6 +469,10 @@ class HighRollerCLI:
             if action in ("q", "quit", "exit"):
                 print("\nThanks for playing High Roller!")
                 break
+            if action in ("m", "mute", "sound"):
+                state = toggle_sound()
+                print(f"\n  >> Sound effects turned {'ON' if state else 'OFF'}.\n")
+                continue
             if action in ("", "r", "roll"):
                 self.roll_die()
             elif action in ("p", "power", "powerdown"):
@@ -478,7 +484,7 @@ class HighRollerCLI:
             elif action in ("g", "gui"):
                 launch_gui()
             else:
-                print(f"Unknown action '{action}'. Choose [R]oll, [P]ower Down, [C]heck Out, [W]ager, or [Q]uit.\n")
+                print(f"Unknown action '{action}'. Choose [R]oll, [P]ower Down, [C]heck Out, [W]ager, [M]ute, or [Q]uit.\n")
 
 
 def free_dice_roller():
@@ -574,40 +580,78 @@ def start_game():
         launch_gui()
         return
 
-    print("┌────────────────────────────────────────────────────────┐")
-    print("│                   D I C E   A R C A D E                │")
-    print("│         Minimalist, Sleek Terminal Dice Games          │")
-    print("└────────────────────────────────────────────────────────┘")
-    print("  [1] Play Pig (vs Computer Bot)  -- [Default]")
-    print("  [2] Play Pig (2-Player Pass & Play)")
-    print("  [3] High Roller (Casino Win Range)")
-    print("  [4] Free Dice Roller (1-5 Dice & Stats)")
-    print("  [G] Launch Sleek Desktop GUI")
-    print("  [Q] Quit")
-    print()
+    while True:
+        sound_status = "ON" if is_sound_enabled() else "OFF"
+        print("┌────────────────────────────────────────────────────────┐")
+        print("│                   D I C E   A R C A D E                │")
+        print("│       V4 Edition: Dynamic AI & Cross-Platform Audio    │")
+        print("└────────────────────────────────────────────────────────┘")
+        print("  [1] Play Pig (vs Computer Bot)  -- [Default]")
+        print("  [2] Play Pig (2-Player Pass & Play)")
+        print("  [3] High Roller (Casino Win Range)")
+        print("  [4] Free Dice Roller (1-5 Dice & Stats)")
+        print(f"  [M] Toggle Sound Effects [{sound_status}]")
+        print("  [G] Launch Sleek Desktop GUI")
+        print("  [Q] Quit")
+        print()
 
-    try:
-        choice = input("Select a game [1-4, G, Q] (Press Enter for Pig vs Bot): ").strip().lower()
-    except EOFError:
-        choice = "1"
-    except KeyboardInterrupt:
-        return
+        try:
+            choice = input("Select an option [1-4, M, G, Q] (Press Enter for Pig vs Bot): ").strip().lower()
+        except EOFError:
+            choice = "1"
+        except KeyboardInterrupt:
+            return
 
-    if choice in ("", "1"):
-        PigGame(target_score=50, vs_bot=True).run()
-    elif choice == "2":
-        PigGame(target_score=50, vs_bot=False).run()
-    elif choice == "3":
-        HighRollerCLI().run()
-    elif choice == "4":
-        free_dice_roller()
-    elif choice in ("g", "gui", "0"):
-        launch_gui()
-    elif choice in ("q", "quit", "exit"):
-        print("Goodbye!")
-    else:
-        print(f"Unknown choice '{choice}'. Launching Pig vs Bot...")
-        PigGame(target_score=50, vs_bot=True).run()
+        if choice in ("", "1"):
+            print("\nSelect Bot AI Difficulty:")
+            print("  [1] Cautious   (Easy — Banks early at 10 pts)")
+            print("  [2] Balanced   (Medium — Classic V3 Heuristic)")
+            print("  [3] Aggressive (Hard — Chases 22+ pts)")
+            print("  [4] Adaptive   (Master — Dynamic Risk Evaluator) -- [Default]")
+            try:
+                diff_input = input("Choose difficulty [1-4] (Press Enter for Adaptive): ").strip().lower()
+            except EOFError:
+                diff_input = "4"
+            except KeyboardInterrupt:
+                continue
+
+            diff_map = {
+                "1": "cautious",
+                "2": "balanced",
+                "3": "aggressive",
+                "4": "adaptive",
+            }
+            chosen_diff = diff_map.get(diff_input, "adaptive")
+            PigGame(target_score=50, vs_bot=True, ai_difficulty=chosen_diff).run()
+            if not sys.stdout.isatty():
+                break
+        elif choice == "2":
+            PigGame(target_score=50, vs_bot=False).run()
+            if not sys.stdout.isatty():
+                break
+        elif choice == "3":
+            HighRollerCLI().run()
+            if not sys.stdout.isatty():
+                break
+        elif choice == "4":
+            free_dice_roller()
+            if not sys.stdout.isatty():
+                break
+        elif choice in ("m", "sound", "mute"):
+            new_state = toggle_sound()
+            print(f"\n>> Sound effects turned {'ON' if new_state else 'OFF'}.\n")
+        elif choice in ("g", "gui", "0"):
+            launch_gui()
+            if not sys.stdout.isatty():
+                break
+        elif choice in ("q", "quit", "exit"):
+            print("Goodbye!")
+            break
+        else:
+            print(f"Unknown choice '{choice}'. Launching Pig vs Bot...")
+            PigGame(target_score=50, vs_bot=True, ai_difficulty="adaptive").run()
+            if not sys.stdout.isatty():
+                break
 
 
 if __name__ == "__main__":

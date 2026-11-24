@@ -2,9 +2,9 @@ name: Run Dice Game
 
 on:
   push:
-    branches: [ main, v3 ]
+    branches: [ main, v3, v4 ]
   pull_request:
-    branches: [ main, v3 ]
+    branches: [ main, v3, v4 ]
   workflow_dispatch: # This gives you a "Run workflow" button!
 
 jobs:
